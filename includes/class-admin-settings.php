@@ -66,26 +66,49 @@ class WSCF_Admin_Settings {
                     'default'  => 10,
                     'desc_tip' => true
                 ],
-                [
-                    'title'    => __('PayPal Processing Fee', 'woo-smart-checkout-fees'),
-                    'desc'     => __('Extra fee when PayPal is selected.', 'woo-smart-checkout-fees'),
-                    'id'       => 'wscf_paypal_fee',
-                    'type'     => 'number',
-                    'default'  => 3,
-                    'desc_tip' => true
-                ],
-                [
-                    'title'    => __('Stripe Processing Fee', 'woo-smart-checkout-fees'),
-                    'desc'     => __('Extra fee when Stripe is selected.', 'woo-smart-checkout-fees'),
-                    'id'       => 'wscf_stripe_fee',
-                    'type'     => 'number',
-                    'default'  => 2,
-                    'desc_tip' => true
-                ],
-                [
+            ];
+
+            // Fetch all active payment gateways in WooCommerce
+            $payment_gateways = WC()->payment_gateways()->get_available_payment_gateways();
+
+            if (!empty($payment_gateways)) {
+                $this->settings[] = [
+                    'title' => __('Payment Method Fees & Discounts', 'woo-smart-checkout-fees'),
+                    'type'  => 'title',
+                    'desc'  => __('Set fees and discounts for each available payment method.', 'woo-smart-checkout-fees'),
+                    'id'    => 'wscf_payment_methods_section'
+                ];
+
+                foreach ($payment_gateways as $gateway_id => $gateway) {
+                    // Payment Method Name
+                    $this->settings[] = [
+                        'title' => sprintf(__('Fee for %s', 'woo-smart-checkout-fees'), $gateway->get_title()),
+                        'desc'  => __('Extra fee when this payment method is selected.', 'woo-smart-checkout-fees'),
+                        'id'    => "wscf_{$gateway_id}_fee",
+                        'type'  => 'number',
+                        'default' => 0,
+                        'desc_tip' => true
+                    ];
+
+                    $this->settings[] = [
+                        'title' => sprintf(__('Discount for %s', 'woo-smart-checkout-fees'), $gateway->get_title()),
+                        'desc'  => __('Discount when this payment method is selected.', 'woo-smart-checkout-fees'),
+                        'id'    => "wscf_{$gateway_id}_discount",
+                        'type'  => 'number',
+                        'default' => 0,
+                        'desc_tip' => true
+                    ];
+                }
+
+                $this->settings[] = [
                     'type' => 'sectionend',
-                    'id'   => 'wscf_settings_section'
-                ],
+                    'id'   => 'wscf_payment_methods_section'
+                ];
+            }
+
+            $this->settings[] = [
+                'type' => 'sectionend',
+                'id'   => 'wscf_settings_section'
             ];
         }
         return $this->settings;
