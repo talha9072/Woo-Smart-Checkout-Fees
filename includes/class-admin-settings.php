@@ -32,86 +32,101 @@ class WSCF_Admin_Settings {
     }
 
     public function output_settings() {
-        woocommerce_admin_fields($this->get_settings());
+        ?>
+        <div class="wscf-tabs-container">
+            <h2><?php _e('Checkout Fees & Discounts Settings', 'woo-smart-checkout-fees'); ?></h2>
+            <h2 class="nav-tab-wrapper">
+                <a href="#wscf-tab-general" class="nav-tab nav-tab-active"><?php _e('General Settings', 'woo-smart-checkout-fees'); ?></a>
+                <a href="#wscf-tab-payment-methods" class="nav-tab"><?php _e('Payment Method Fees & Discounts', 'woo-smart-checkout-fees'); ?></a>
+            </h2>
+
+            <div id="wscf-tab-general" class="wscf-tab-content">
+                <?php woocommerce_admin_fields($this->get_general_settings()); ?>
+            </div>
+
+            <div id="wscf-tab-payment-methods" class="wscf-tab-content" style="display: none;">
+                <?php woocommerce_admin_fields($this->get_payment_settings()); ?>
+            </div>
+        </div>
+
+        <?php
     }
 
     public function save_settings() {
-        woocommerce_update_options($this->get_settings());
+        woocommerce_update_options($this->get_general_settings());
+        woocommerce_update_options($this->get_payment_settings());
     }
 
-    private $settings = null;
+    private function get_general_settings() {
+        return [
+            [
+                'title' => __('General Settings', 'woo-smart-checkout-fees'),
+                'type'  => 'title',
+                'desc'  => __('Configure automatic checkout fees and discounts.', 'woo-smart-checkout-fees'),
+                'id'    => 'wscf_settings_section'
+            ],
+            [
+                'title'    => __('Discount Threshold', 'woo-smart-checkout-fees'),
+                'desc'     => __('Minimum cart total to apply discount.', 'woo-smart-checkout-fees'),
+                'id'       => 'wscf_discount_threshold',
+                'type'     => 'number',
+                'default'  => 100,
+                'desc_tip' => true
+            ],
+            [
+                'title'    => __('Discount Amount', 'woo-smart-checkout-fees'),
+                'desc'     => __('Amount to discount when threshold is met.', 'woo-smart-checkout-fees'),
+                'id'       => 'wscf_discount_amount',
+                'type'     => 'number',
+                'default'  => 10,
+                'desc_tip' => true
+            ],
+            [
+                'type' => 'sectionend',
+                'id'   => 'wscf_settings_section'
+            ]
+        ];
+    }
 
-    public function get_settings() {
-        if ($this->settings === null) {
-            $this->settings = [
-                [
-                    'title' => __('Checkout Fees & Discounts Settings', 'woo-smart-checkout-fees'),
-                    'type'  => 'title',
-                    'desc'  => __('Configure automatic checkout fees and discounts.', 'woo-smart-checkout-fees'),
-                    'id'    => 'wscf_settings_section'
-                ],
-                [
-                    'title'    => __('Discount Threshold', 'woo-smart-checkout-fees'),
-                    'desc'     => __('Minimum cart total to apply discount.', 'woo-smart-checkout-fees'),
-                    'id'       => 'wscf_discount_threshold',
-                    'type'     => 'number',
-                    'default'  => 100,
-                    'desc_tip' => true
-                ],
-                [
-                    'title'    => __('Discount Amount', 'woo-smart-checkout-fees'),
-                    'desc'     => __('Amount to discount when threshold is met.', 'woo-smart-checkout-fees'),
-                    'id'       => 'wscf_discount_amount',
-                    'type'     => 'number',
-                    'default'  => 10,
-                    'desc_tip' => true
-                ],
+    private function get_payment_settings() {
+        $settings = [];
+        $payment_gateways = WC()->payment_gateways()->get_available_payment_gateways();
+
+        if (!empty($payment_gateways)) {
+            $settings[] = [
+                'title' => __('Payment Method Fees & Discounts', 'woo-smart-checkout-fees'),
+                'type'  => 'title',
+                'desc'  => __('Set fees and discounts for each available payment method.', 'woo-smart-checkout-fees'),
+                'id'    => 'wscf_payment_methods_section'
             ];
 
-            // Fetch all active payment gateways in WooCommerce
-            $payment_gateways = WC()->payment_gateways()->get_available_payment_gateways();
-
-            if (!empty($payment_gateways)) {
-                $this->settings[] = [
-                    'title' => __('Payment Method Fees & Discounts', 'woo-smart-checkout-fees'),
-                    'type'  => 'title',
-                    'desc'  => __('Set fees and discounts for each available payment method.', 'woo-smart-checkout-fees'),
-                    'id'    => 'wscf_payment_methods_section'
+            foreach ($payment_gateways as $gateway_id => $gateway) {
+                $settings[] = [
+                    'title' => sprintf(__('Fee for %s', 'woo-smart-checkout-fees'), $gateway->get_title()),
+                    'desc'  => __('Extra fee when this payment method is selected.', 'woo-smart-checkout-fees'),
+                    'id'    => "wscf_{$gateway_id}_fee",
+                    'type'  => 'number',
+                    'default' => 0,
+                    'desc_tip' => true
                 ];
 
-                foreach ($payment_gateways as $gateway_id => $gateway) {
-                    // Payment Method Name
-                    $this->settings[] = [
-                        'title' => sprintf(__('Fee for %s', 'woo-smart-checkout-fees'), $gateway->get_title()),
-                        'desc'  => __('Extra fee when this payment method is selected.', 'woo-smart-checkout-fees'),
-                        'id'    => "wscf_{$gateway_id}_fee",
-                        'type'  => 'number',
-                        'default' => 0,
-                        'desc_tip' => true
-                    ];
-
-                    $this->settings[] = [
-                        'title' => sprintf(__('Discount for %s', 'woo-smart-checkout-fees'), $gateway->get_title()),
-                        'desc'  => __('Discount when this payment method is selected.', 'woo-smart-checkout-fees'),
-                        'id'    => "wscf_{$gateway_id}_discount",
-                        'type'  => 'number',
-                        'default' => 0,
-                        'desc_tip' => true
-                    ];
-                }
-
-                $this->settings[] = [
-                    'type' => 'sectionend',
-                    'id'   => 'wscf_payment_methods_section'
+                $settings[] = [
+                    'title' => sprintf(__('Discount for %s', 'woo-smart-checkout-fees'), $gateway->get_title()),
+                    'desc'  => __('Discount when this payment method is selected.', 'woo-smart-checkout-fees'),
+                    'id'    => "wscf_{$gateway_id}_discount",
+                    'type'  => 'number',
+                    'default' => 0,
+                    'desc_tip' => true
                 ];
             }
 
-            $this->settings[] = [
+            $settings[] = [
                 'type' => 'sectionend',
-                'id'   => 'wscf_settings_section'
+                'id'   => 'wscf_payment_methods_section'
             ];
         }
-        return $this->settings;
+
+        return $settings;
     }
 
     public function enqueue_admin_assets($hook) {
@@ -120,11 +135,9 @@ class WSCF_Admin_Settings {
         }
 
         wp_enqueue_style('wscf-admin-style', WSCF_PLUGIN_URL . 'assets/styles.css', [], '1.0');
-        wp_enqueue_script('wscf-admin-script', WSCF_PLUGIN_URL . 'assets/script.js', ['jquery'], '1.0', true);
     }
+}
 }
 
 // Ensure only one instance of the class is initialized
 WSCF_Admin_Settings::get_instance();
-
-}
