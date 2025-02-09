@@ -28,8 +28,8 @@ require_once WSCF_PLUGIN_PATH . 'includes/class-admin-settings.php';
 
 // Initialize the plugin
 function wscf_init_plugin() {
-    new WSCF_Checkout_Fees(); // Load checkout fees logic
-    new WSCF_Admin_Settings(); // Load admin settings panel
+    WSCF_Checkout_Fees::get_instance(); // Load checkout fees logic
+    WSCF_Admin_Settings::get_instance(); // Load admin settings panel
 }
 
 add_action('plugins_loaded', 'wscf_init_plugin');
