@@ -31,50 +31,73 @@ class WSCF_Checkout_Fees {
     }
 
     /**
-     * Apply checkout fees dynamically based on selected payment method
+     * Apply checkout fees and discounts based on payment method & general threshold discount
      */
     public function apply_checkout_fees_and_discounts($cart) {
         if (is_admin() && !defined('DOING_AJAX')) {
             return;
         }
 
-        $cart_total = $cart->subtotal;
+        $cart_total = WC()->cart->get_cart_contents_total(); // Get correct cart total
         $chosen_gateway = WC()->session->get('chosen_payment_method', '');
 
         $this->log_debug("Current Payment Method: " . $chosen_gateway);
+        $this->log_debug("Cart Total Before Fees: " . $cart_total);
 
-        // Fetch discount settings
-        $discount_threshold = get_option('wscf_discount_threshold', 100);
-        $discount_amount = get_option('wscf_discount_amount', 10);
+        // Fetch General Discount Settings (Threshold Discount)
+        $discount_threshold = (float) get_option('wscf_discount_threshold', 100);
+        $discount_amount = (float) get_option('wscf_discount_amount', 10);
 
-        // Apply bulk order discount
-        if ($cart_total >= $discount_threshold) {
+        // Apply general discount if threshold is met
+        if ($cart_total >= $discount_threshold && $discount_amount > 0) {
+            $this->log_debug("Applying General Discount: -" . $discount_amount);
             $cart->add_fee(__('Bulk Order Discount', 'woo-smart-checkout-fees'), -$discount_amount, false);
+        } else {
+            $this->log_debug("General Discount Not Applied - Threshold Not Met");
         }
 
-        // Get available payment methods dynamically
+        // Fetch all available payment gateways
         $payment_gateways = WC()->payment_gateways()->get_available_payment_gateways();
         $payment_fees = [];
+        $payment_discounts = [];
 
         foreach ($payment_gateways as $gateway_id => $gateway) {
-            $fee_option = get_option("wscf_{$gateway_id}_fee", 0);
+            // Get fee and discount for the gateway
+            $fee_option = (float) get_option("wscf_{$gateway_id}_fee", 0);
+            $discount_option = (float) get_option("wscf_{$gateway_id}_discount", 0);
+
             $this->log_debug("Checking Fee for: $gateway_id | Fee: $fee_option");
+            $this->log_debug("Checking Discount for: $gateway_id | Discount: $discount_option");
 
             $payment_fees[$gateway_id] = $fee_option;
+            $payment_discounts[$gateway_id] = $discount_option;
         }
 
-        // Apply or remove payment processing fee
+        // Apply gateway-specific processing fee
         if (!empty($chosen_gateway) && isset($payment_fees[$chosen_gateway])) {
             $fee_amount = $payment_fees[$chosen_gateway];
 
             if ($fee_amount > 0) {
-                $this->log_debug("Applying Fee: " . $fee_amount);
+                $this->log_debug("Applying Payment Processing Fee: " . $fee_amount);
                 $cart->add_fee(__('Payment Processing Fee', 'woo-smart-checkout-fees'), $fee_amount, false);
             } else {
-                $this->log_debug("Removing Fee as selected method has no fee.");
-                WC()->session->__unset('chosen_payment_method');
+                $this->log_debug("Removing Payment Fee as selected method has no fee.");
             }
         }
+
+        // Apply gateway-specific discount
+        if (!empty($chosen_gateway) && isset($payment_discounts[$chosen_gateway])) {
+            $discount_amount = $payment_discounts[$chosen_gateway];
+
+            if ($discount_amount > 0) {
+                $this->log_debug("Applying Payment Discount: -" . $discount_amount);
+                $cart->add_fee(__('Payment Method Discount', 'woo-smart-checkout-fees'), -$discount_amount, false);
+            } else {
+                $this->log_debug("No discount for selected method.");
+            }
+        }
+
+        $this->log_debug("Cart Total After Fees: " . WC()->cart->get_cart_contents_total());
     }
 
     /**
@@ -84,44 +107,42 @@ class WSCF_Checkout_Fees {
         ?>
         <script>
             console.log("✅ WSCF Script Loaded! Checking for Payment Methods...");
-    
+
             document.addEventListener("DOMContentLoaded", function () {
-            console.log("✅ WSCF Script Loaded! Waiting for Payment Method Selection...");
+                console.log("✅ WSCF Script Loaded! Waiting for Payment Method Selection...");
 
-    // Use event delegation to listen for payment method changes
-            document.body.addEventListener("change", function (event) {
-                if (event.target.matches('input[name="payment_method"]')) {
-                    let selectedMethod = document.querySelector('input[name="payment_method"]:checked').value;
+                // Use event delegation to listen for payment method changes
+                document.body.addEventListener("change", function (event) {
+                    if (event.target.matches('input[name="payment_method"]')) {
+                        let selectedMethod = document.querySelector('input[name="payment_method"]:checked').value;
 
-                    console.log("🟢 Payment method changed to:", selectedMethod); // Debugging log
+                        console.log("🟢 Payment method changed to:", selectedMethod); // Debugging log
 
-                    // Send AJAX request to update WooCommerce session
-                    fetch(wc_checkout_params.ajax_url, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                        body: new URLSearchParams({
-                            action: "wscf_update_payment_method",
-                            payment_method: selectedMethod
-                        })
-                    }).then(response => response.text()).then(data => {
-                        console.log("✅ AJAX Response:", data); // Debugging log
+                        // Send AJAX request to update WooCommerce session
+                        fetch(wc_checkout_params.ajax_url, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                            body: new URLSearchParams({
+                                action: "wscf_update_payment_method",
+                                payment_method: selectedMethod
+                            })
+                        }).then(response => response.text()).then(data => {
+                            console.log("✅ AJAX Response:", data); // Debugging log
 
-                        // Ensure session updates before refreshing checkout
-                        setTimeout(() => {
-                            console.log("🔄 Triggering WooCommerce Checkout Refresh...");
-                            jQuery(document.body).trigger("update_checkout");
-                        }, 500);
-                    }).catch(error => {
-                        console.error("❌ AJAX Error:", error);
-                    });
-                }
+                            // Ensure session updates before refreshing checkout
+                            setTimeout(() => {
+                                console.log("🔄 Triggering WooCommerce Checkout Refresh...");
+                                jQuery(document.body).trigger("update_checkout");
+                            }, 500);
+                        }).catch(error => {
+                            console.error("❌ AJAX Error:", error);
+                        });
+                    }
+                });
             });
-});
-
         </script>
         <?php
     }
-    
 
     /**
      * Updates the WooCommerce session with the selected payment method
