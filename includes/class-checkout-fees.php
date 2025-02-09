@@ -45,6 +45,26 @@ class WSCF_Checkout_Fees {
             $cart->add_fee(__('Payment Processing Fee', 'woo-smart-checkout-fees'), $payment_fees[$chosen_gateway], false);
         }
     }
+    public function track_payment_method() {
+        ?>
+        <script>
+            jQuery(document).ready(function($) {
+                $('form.checkout').on('change', 'input[name="payment_method"]', function() {
+                    var paymentMethod = $('input[name="payment_method"]:checked').val();
+                    jQuery.ajax({
+                        type: "POST",
+                        url: wc_checkout_params.ajax_url,
+                        data: {
+                            action: 'wscf_update_payment_method',
+                            payment_method: paymentMethod
+                        }
+                    });
+                });
+            });
+        </script>
+        <?php
+    }
+    
 }
 
 // Ensure only one instance is initialized
