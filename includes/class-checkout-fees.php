@@ -17,54 +17,132 @@ class WSCF_Checkout_Fees {
     private function __construct() {
         add_action('woocommerce_cart_calculate_fees', [$this, 'apply_checkout_fees_and_discounts']);
         add_action('woocommerce_review_order_before_payment', [$this, 'track_payment_method']);
+        add_action('wp_ajax_wscf_update_payment_method', [$this, 'update_payment_method']);
+        add_action('wp_ajax_nopriv_wscf_update_payment_method', [$this, 'update_payment_method']);
     }
 
+    /**
+     * Log debug messages to WooCommerce debug log
+     */
+    private function log_debug($message) {
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log("[WSCF DEBUG] " . $message);
+        }
+    }
+
+    /**
+     * Apply checkout fees dynamically based on selected payment method
+     */
     public function apply_checkout_fees_and_discounts($cart) {
         if (is_admin() && !defined('DOING_AJAX')) {
             return;
         }
 
         $cart_total = $cart->subtotal;
-        $chosen_gateway = WC()->session->get('chosen_payment_method');
+        $chosen_gateway = WC()->session->get('chosen_payment_method', '');
 
+        $this->log_debug("Current Payment Method: " . $chosen_gateway);
+
+        // Fetch discount settings
         $discount_threshold = get_option('wscf_discount_threshold', 100);
         $discount_amount = get_option('wscf_discount_amount', 10);
-        $paypal_fee = get_option('wscf_paypal_fee', 3);
-        $stripe_fee = get_option('wscf_stripe_fee', 2);
 
+        // Apply bulk order discount
         if ($cart_total >= $discount_threshold) {
             $cart->add_fee(__('Bulk Order Discount', 'woo-smart-checkout-fees'), -$discount_amount, false);
         }
 
-        $payment_fees = [
-            'paypal' => $paypal_fee,
-            'stripe' => $stripe_fee
-        ];
+        // Get available payment methods dynamically
+        $payment_gateways = WC()->payment_gateways()->get_available_payment_gateways();
+        $payment_fees = [];
 
-        if (isset($payment_fees[$chosen_gateway]) && $payment_fees[$chosen_gateway] > 0) {
-            $cart->add_fee(__('Payment Processing Fee', 'woo-smart-checkout-fees'), $payment_fees[$chosen_gateway], false);
+        foreach ($payment_gateways as $gateway_id => $gateway) {
+            $fee_option = get_option("wscf_{$gateway_id}_fee", 0);
+            $this->log_debug("Checking Fee for: $gateway_id | Fee: $fee_option");
+
+            $payment_fees[$gateway_id] = $fee_option;
+        }
+
+        // Apply or remove payment processing fee
+        if (!empty($chosen_gateway) && isset($payment_fees[$chosen_gateway])) {
+            $fee_amount = $payment_fees[$chosen_gateway];
+
+            if ($fee_amount > 0) {
+                $this->log_debug("Applying Fee: " . $fee_amount);
+                $cart->add_fee(__('Payment Processing Fee', 'woo-smart-checkout-fees'), $fee_amount, false);
+            } else {
+                $this->log_debug("Removing Fee as selected method has no fee.");
+                WC()->session->__unset('chosen_payment_method');
+            }
         }
     }
+
+    /**
+     * Tracks selected payment method and triggers an AJAX update
+     */
     public function track_payment_method() {
         ?>
         <script>
-            jQuery(document).ready(function($) {
-                $('form.checkout').on('change', 'input[name="payment_method"]', function() {
-                    var paymentMethod = $('input[name="payment_method"]:checked').val();
-                    jQuery.ajax({
-                        type: "POST",
-                        url: wc_checkout_params.ajax_url,
-                        data: {
-                            action: 'wscf_update_payment_method',
-                            payment_method: paymentMethod
-                        }
-                    });
-                });
+            console.log("✅ WSCF Script Loaded! Checking for Payment Methods...");
+    
+            document.addEventListener("DOMContentLoaded", function () {
+    console.log("✅ WSCF Script Loaded! Waiting for Payment Method Selection...");
+
+    // Use event delegation to listen for payment method changes
+    document.body.addEventListener("change", function (event) {
+        if (event.target.matches('input[name="payment_method"]')) {
+            let selectedMethod = document.querySelector('input[name="payment_method"]:checked').value;
+
+            console.log("🟢 Payment method changed to:", selectedMethod); // Debugging log
+
+            // Send AJAX request to update WooCommerce session
+            fetch(wc_checkout_params.ajax_url, {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: new URLSearchParams({
+                    action: "wscf_update_payment_method",
+                    payment_method: selectedMethod
+                })
+            }).then(response => response.text()).then(data => {
+                console.log("✅ AJAX Response:", data); // Debugging log
+
+                // Ensure session updates before refreshing checkout
+                setTimeout(() => {
+                    console.log("🔄 Triggering WooCommerce Checkout Refresh...");
+                    jQuery(document.body).trigger("update_checkout");
+                }, 500);
+            }).catch(error => {
+                console.error("❌ AJAX Error:", error);
             });
+        }
+    });
+});
+
         </script>
         <?php
     }
     
+
+    /**
+     * Updates the WooCommerce session with the selected payment method
+     */
+    public function update_payment_method() {
+        if (isset($_POST['payment_method'])) {
+            $method = sanitize_text_field($_POST['payment_method']);
+
+            $this->log_debug("AJAX Received: New Payment Method - " . $method);
+
+            // Update WooCommerce session
+            WC()->session->set('chosen_payment_method', $method);
+            WC()->cart->calculate_totals();
+
+            echo "Payment method updated to: " . $method;
+        } else {
+            $this->log_debug("AJAX Failed - No payment method received.");
+            echo "Error: No payment method received.";
+        }
+        wp_die();
+    }
 }
 
 // Ensure only one instance is initialized
