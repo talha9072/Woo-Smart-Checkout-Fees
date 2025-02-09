@@ -50,55 +50,51 @@ class WSCF_Admin_Settings {
         </div>
 
         <script>
-            // tabs switching code.
+        // tabs switching code.
+        document.addEventListener("DOMContentLoaded", function () {
+            let tabs = document.querySelectorAll(".nav-tab");
+            let contents = document.querySelectorAll(".wscf-tab-content");
 
-document.addEventListener("DOMContentLoaded", function () {
-    let tabs = document.querySelectorAll(".nav-tab");
-    let contents = document.querySelectorAll(".wscf-tab-content");
+            function activateTab(targetId) {
+                if (!targetId) return;
 
-    function activateTab(targetId) {
-        if (!targetId) return;
+                // Remove active class from all tabs
+                tabs.forEach(tab => tab.classList.remove("nav-tab-active"));
+                // Hide all tab content
+                contents.forEach(content => content.style.display = "none");
 
-        // Remove active class from all tabs
-        tabs.forEach(tab => tab.classList.remove("nav-tab-active"));
-        // Hide all tab content
-        contents.forEach(content => content.style.display = "none");
+                // Activate clicked tab
+                let targetTab = document.querySelector(`.nav-tab[href="${targetId}"]`);
+                if (targetTab) {
+                    targetTab.classList.add("nav-tab-active");
+                }
 
-        // Activate clicked tab
-        let targetTab = document.querySelector(`.nav-tab[href="${targetId}"]`);
-        if (targetTab) {
-            targetTab.classList.add("nav-tab-active");
-        }
+                // Show corresponding tab content
+                let targetContent = document.querySelector(targetId);
+                if (targetContent) {
+                    targetContent.style.display = "block";
+                }
 
-        // Show corresponding tab content
-        let targetContent = document.querySelector(targetId);
-        if (targetContent) {
-            targetContent.style.display = "block";
-        }
+                // Update URL hash without reloading the page
+                history.replaceState(null, null, targetId);
+            }
 
-        // Update URL hash without reloading the page
-        history.replaceState(null, null, targetId);
-    }
+            // Click event for switching tabs
+            tabs.forEach(tab => {
+                tab.addEventListener("click", function (e) {
+                    e.preventDefault();
+                    activateTab(this.getAttribute("href"));
+                });
+            });
 
-    // Click event for switching tabs
-    tabs.forEach(tab => {
-        tab.addEventListener("click", function (e) {
-            e.preventDefault();
-            activateTab(this.getAttribute("href"));
+            // Auto-activate tab from URL hash on page load
+            if (window.location.hash && document.querySelector(window.location.hash)) {
+                activateTab(window.location.hash);
+            } else {
+                // Default to the first tab if no hash is present
+                activateTab("#wscf-tab-general");
+            }
         });
-    });
-
-    // Auto-activate tab from URL hash on page load
-    if (window.location.hash && document.querySelector(window.location.hash)) {
-        activateTab(window.location.hash);
-    } else {
-        // Default to the first tab if no hash is present
-        activateTab("#wscf-tab-general");
-    }
-});
-
-
-
 
         </script>
 

@@ -86,36 +86,36 @@ class WSCF_Checkout_Fees {
             console.log("✅ WSCF Script Loaded! Checking for Payment Methods...");
     
             document.addEventListener("DOMContentLoaded", function () {
-    console.log("✅ WSCF Script Loaded! Waiting for Payment Method Selection...");
+            console.log("✅ WSCF Script Loaded! Waiting for Payment Method Selection...");
 
     // Use event delegation to listen for payment method changes
-    document.body.addEventListener("change", function (event) {
-        if (event.target.matches('input[name="payment_method"]')) {
-            let selectedMethod = document.querySelector('input[name="payment_method"]:checked').value;
+            document.body.addEventListener("change", function (event) {
+                if (event.target.matches('input[name="payment_method"]')) {
+                    let selectedMethod = document.querySelector('input[name="payment_method"]:checked').value;
 
-            console.log("🟢 Payment method changed to:", selectedMethod); // Debugging log
+                    console.log("🟢 Payment method changed to:", selectedMethod); // Debugging log
 
-            // Send AJAX request to update WooCommerce session
-            fetch(wc_checkout_params.ajax_url, {
-                method: "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                body: new URLSearchParams({
-                    action: "wscf_update_payment_method",
-                    payment_method: selectedMethod
-                })
-            }).then(response => response.text()).then(data => {
-                console.log("✅ AJAX Response:", data); // Debugging log
+                    // Send AJAX request to update WooCommerce session
+                    fetch(wc_checkout_params.ajax_url, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                        body: new URLSearchParams({
+                            action: "wscf_update_payment_method",
+                            payment_method: selectedMethod
+                        })
+                    }).then(response => response.text()).then(data => {
+                        console.log("✅ AJAX Response:", data); // Debugging log
 
-                // Ensure session updates before refreshing checkout
-                setTimeout(() => {
-                    console.log("🔄 Triggering WooCommerce Checkout Refresh...");
-                    jQuery(document.body).trigger("update_checkout");
-                }, 500);
-            }).catch(error => {
-                console.error("❌ AJAX Error:", error);
+                        // Ensure session updates before refreshing checkout
+                        setTimeout(() => {
+                            console.log("🔄 Triggering WooCommerce Checkout Refresh...");
+                            jQuery(document.body).trigger("update_checkout");
+                        }, 500);
+                    }).catch(error => {
+                        console.error("❌ AJAX Error:", error);
+                    });
+                }
             });
-        }
-    });
 });
 
         </script>
