@@ -1,11 +1,11 @@
 <?php
 /**
  * Plugin Name: WooCommerce Smart Checkout Fees & Discounts
- * Plugin URI: https://yourwebsite.com/
+ * Plugin URI: https://talhasolutions.com/
  * Description: Automatically applies checkout fees and discounts based on cart conditions, payment methods, and order total.
  * Version: 1.0.0
- * Author: Your Name
- * Author URI: https://yourwebsite.com/
+ * Author: Talha Shahid
+ * Author URI: https://talha-solutions.com/
  * License: GPL-2.0+
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: woo-smart-checkout-fees
